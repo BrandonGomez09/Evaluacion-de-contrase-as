@@ -42,6 +42,10 @@ const swaggerOptions = {
     },
     servers: [
       {
+        url: 'https://evaluador-de-contrasenas.onrender.com', // <-- URL PÚBLICA AQUÍ
+        description: 'Servidor de Producción'
+      },
+      {
         url: `http://localhost:${PORT}`,
         description: 'Servidor de Desarrollo Local'
       }
