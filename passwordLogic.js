@@ -35,11 +35,9 @@ const checkPasswordStrength = (entropy) => {
   return 'Muy Fuerte';
 };
 
-/**
- * Calcula el tiempo estimado de crackeo en un formato legible.
- */
+
 const calculateCrackTime = (entropy) => {
-  const attemptsPerSecond = 1e11; // 100 mil millones de intentos/segundo
+  const attemptsPerSecond = 1e11; 
   const totalCombinations = Math.pow(2, entropy);
   const seconds = totalCombinations / attemptsPerSecond;
 
@@ -56,6 +54,25 @@ const calculateCrackTime = (entropy) => {
   return 'Millones de años';
 };
 
+/**
+
+ * @param {string} password La contraseña del usuario.
+ * @param {Set<string>} commonPasswordsSet El Set con las contraseñas comunes.
+ * @returns {string|null} La subcadena común encontrada, o null si no se encuentra ninguna.
+ */
+const findPartialMatch = (password, commonPasswordsSet) => {
+  const MIN_LENGTH = 5;
+
+  for (const commonPass of commonPasswordsSet) {
+    if (commonPass.length >= MIN_LENGTH && password.toLowerCase().includes(commonPass)) {
+      return commonPass; 
+    }
+  }
+
+  return null;
+};
+
+
 // Exportamos todas las funciones
 module.exports = {
   calculateL,
@@ -63,4 +80,5 @@ module.exports = {
   calculateEntropy,
   checkPasswordStrength,
   calculateCrackTime,
+  findPartialMatch,
 };

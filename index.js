@@ -9,6 +9,7 @@ const {
   calculateEntropy,
   checkPasswordStrength,
   calculateCrackTime,
+  findPartialMatch, // <-- 1. Se importa la nueva función de passwordLogic.js
 } = require('./passwordLogic');
 
 const app = express();
@@ -42,7 +43,7 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: 'https://evaluador-de-contrasenas.onrender.com', // <-- URL PÚBLICA AQUÍ
+        url: 'https://evaluador-de-contraseñas.onrender.com', 
         description: 'Servidor de Producción'
       },
       {
@@ -67,7 +68,7 @@ app.get('/', (req, res) => {
  * /api/v1/password/evaluate:
  *   post:
  *     summary: Evalúa la fortaleza de una contraseña.
- *     description: Recibe una contraseña y devuelve un análisis completo que incluye entropía, nivel de fortaleza, si es una contraseña común y el tiempo estimado para crackearla.
+ *     description: Recibe una contraseña y devuelve un análisis completo que incluye entropía, fortaleza, y si es una contraseña común (exacta o parcial).
  *     requestBody:
  *       required: true
  *       content:
@@ -78,7 +79,7 @@ app.get('/', (req, res) => {
  *               password:
  *                 type: string
  *                 description: La contraseña a evaluar.
- *                 example: "MyP@ssw0rd!"
+ *                 example: "Mi-password-123"
  *     responses:
  *       '200':
  *         description: Análisis de la contraseña exitoso.
@@ -104,10 +105,16 @@ app.get('/', (req, res) => {
  *                       example: 72.14
  *                     strength:
  *                       type: string
- *                       example: "Fuerte"
+ *                       example: "Débil (Predecible)"
  *                     isCommon:
  *                       type: boolean
+ *                       description: "Indica si la contraseña es una coincidencia EXACTA en el dataset."
  *                       example: false
+ *                     containedCommonWord:
+ *                       type: string
+ *                       nullable: true
+ *                       description: "Si se encuentra una coincidencia PARCIAL, muestra la palabra común contenida."
+ *                       example: "password"
  *                 security_tips:
  *                   type: object
  *                   properties:
@@ -116,7 +123,7 @@ app.get('/', (req, res) => {
  *                       example: "3,775.25 años"
  *                     recommendation:
  *                       type: string
- *                       example: "¡Buena contraseña!"
+ *                       example: "Tu contraseña contiene la palabra común 'password', lo que la hace predecible."
  *       '400':
  *         description: Petición inválida. El cuerpo de la petición debe contener una propiedad "password" de tipo string.
  */
@@ -134,14 +141,25 @@ app.post('/api/v1/password/evaluate', (req, res) => {
   const crackTime = calculateCrackTime(entropy);
   const isCommon = commonPasswords.has(password);
 
+  // --- 2. LÓGICA: Búsqueda exacta y parcial ---
   let finalStrength = strength;
-  let recommendation = "Excelente contraseña!";
+  let recommendation = "¡Buena contraseña!"; 
+  let partialMatch = null;
 
   if (isCommon) {
-    finalStrength = 'Contraseña muy Débil (Común)';
-    recommendation = "Esta contraseña es extremadamente común y fácil de adivinar. Se recomienda cambiarla inmediatamente.";
+    // Caso 1: La contraseña es una coincidencia EXACTA
+    finalStrength = 'Muy Débil (Común)';
+    recommendation = "Esta contraseña es comun entre las contraseñas filtradas. Cambiala por una más segura.";
+  } else {
+    // Caso 2: Si no es exacta, buscar si CONTIENE una contraseña común
+    partialMatch = findPartialMatch(password, commonPasswords);
+    if (partialMatch) {
+      finalStrength = 'Débil (Predecible)';
+      recommendation = `Tu contraseña contiene la palabra común '${partialMatch}'`;
+    }
   }
   
+  // --- 3. RESPUESTA ACTUALIZADA: Se añade el campo `containedCommonWord` ---
   const response = {
     password: '***',
     evaluation: {
@@ -149,7 +167,8 @@ app.post('/api/v1/password/evaluate', (req, res) => {
       keyspace: N,
       entropy: parseFloat(entropy.toFixed(2)),
       strength: finalStrength,
-      isCommon: isCommon,
+      isCommon: isCommon, 
+      containedCommonWord: partialMatch, 
     },
     security_tips: {
       estimatedCrackTime: isCommon ? "Instantáneo (está en listas de filtraciones)" : crackTime,
